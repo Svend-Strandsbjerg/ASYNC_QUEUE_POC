@@ -1,0 +1,58 @@
+name: Repository Foundation CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  repository-hygiene:
+    name: Repository hygiene checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required foundation files
+        run: |
+          set -euo pipefail
+          required=(
+            "README.md"
+            "ARCHITECTURE.md"
+            "AGENTS.md"
+            "CONTRIBUTING.md"
+            "CODEOWNERS"
+            "docs/standards/coding-standards.md"
+            "docs/standards/testing-strategy.md"
+            "docs/standards/documentation-strategy.md"
+            "docs/process/development-workflow.md"
+            "docs/process/pull-request-guidelines.md"
+            "docs/process/ai-agent-workflow.md"
+            ".github/pull_request_template.md"
+          )
+
+          for file in "${required[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              echo "Missing required file: $file"
+              exit 1
+            fi
+          done
+
+      - name: Validate markdown file presence and basic quality
+        run: |
+          set -euo pipefail
+          mapfile -t md_files < <(find . -type f -name "*.md" -not -path "./.git/*")
+
+          if [[ ${#md_files[@]} -eq 0 ]]; then
+            echo "No markdown files found."
+            exit 1
+          fi
+
+          for file in "${md_files[@]}"; do
+            if ! grep -qE '^# ' "$file"; then
+              echo "Missing top-level heading in $file"
+              exit 1
+            fi
+          done

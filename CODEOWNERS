@@ -1,0 +1,12 @@
+# CODEOWNERS
+#
+# Replace placeholders below with your team/user handles.
+# Example:
+# * @your-org/engineering
+# docs/ @your-org/tech-writers
+# .github/ @your-org/dev-infra
+
+* @REPLACE_WITH_OWNER
+
+docs/ @REPLACE_WITH_DOCS_OWNER
+.github/ @REPLACE_WITH_PLATFORM_OWNER

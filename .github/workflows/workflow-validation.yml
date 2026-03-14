@@ -1,0 +1,40 @@
+name: Workflow File Validation
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/*.yml
+      - .github/workflows/*.yaml
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/*.yml
+      - .github/workflows/*.yaml
+  workflow_dispatch:
+
+jobs:
+  workflow-yaml-syntax:
+    name: Workflow YAML syntax checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate workflow YAML files
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          workflow_files=(.github/workflows/*.yml .github/workflows/*.yaml)
+
+          if [[ ${#workflow_files[@]} -eq 0 ]]; then
+            echo "No workflow files found under .github/workflows/."
+            exit 1
+          fi
+
+          for file in "${workflow_files[@]}"; do
+            ruby -e 'require "yaml"; YAML.load_file(ARGV[0])' "$file"
+            echo "Validated YAML syntax: $file"
+          done
