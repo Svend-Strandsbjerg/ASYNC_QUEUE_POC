@@ -113,6 +113,10 @@ def test_list_queues_and_static_ui_mount() -> None:
     ui_response = client.get("/ui")
     assert ui_response.status_code == 200
     assert "Run Test" in ui_response.text
+    assert "LOG 1" in ui_response.text
+    assert "Activity Log" in ui_response.text
+    assert "LOG 2" in ui_response.text
+    assert "Sent Items Log" in ui_response.text
     assert "Generate test queues" not in ui_response.text
 
 

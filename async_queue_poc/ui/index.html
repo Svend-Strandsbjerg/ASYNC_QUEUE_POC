@@ -53,11 +53,23 @@
       <section class="panel" id="log-panel">
         <h2>Logs / Test Results</h2>
 
-        <h3>Activity log</h3>
-        <ul id="activity-log" class="log-list"></ul>
+        <div class="log-stack">
+          <section class="log-card" aria-label="LOG 1 activity log panel">
+            <header class="log-card-header">
+              <h3>LOG 1</h3>
+              <p>Activity Log</p>
+            </header>
+            <ul id="activity-log" class="log-list"></ul>
+          </section>
 
-        <h3>Dummy transport log</h3>
-        <ul id="transport-log" class="log-list"></ul>
+          <section class="log-card" aria-label="LOG 2 sent items log panel">
+            <header class="log-card-header">
+              <h3>LOG 2</h3>
+              <p>Sent Items Log</p>
+            </header>
+            <ul id="transport-log" class="log-list"></ul>
+          </section>
+        </div>
       </section>
     </main>
 
