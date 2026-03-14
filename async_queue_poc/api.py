@@ -140,7 +140,9 @@ class QueueService:
         self._transport_log.append(
             {
                 "queue": queue_name,
+                "queue_id": queue_name,
                 "item": item,
+                "item_id": item,
                 "released_at": released_at,
                 "timestamp": released_at,
             }

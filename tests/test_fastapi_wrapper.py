@@ -89,7 +89,11 @@ def test_sent_log_reflects_global_processing_order() -> None:
         ("Queue A", "A2"),
         ("Queue C", "C1"),
     ]
+    assert all("item_id" in entry for entry in entries)
+    assert all("queue_id" in entry for entry in entries)
     assert all("released_at" in entry for entry in entries)
+    assert all(entry["item_id"] == entry["item"] for entry in entries)
+    assert all(entry["queue_id"] == entry["queue"] for entry in entries)
     assert all(entry["released_at"] == entry["timestamp"] for entry in entries)
 
 
@@ -131,3 +135,16 @@ def test_not_found_returns_404() -> None:
     response = client.post("/queues/missing/items", json={"item": "x"})
 
     assert response.status_code == 404
+
+
+def test_ui_script_renders_newest_log_entries_first_with_structured_sent_item_cards() -> None:
+    client = TestClient(api.app)
+
+    response = client.get("/ui/app.js")
+
+    assert response.status_code == 200
+    script = response.text
+    assert "container.insertBefore(element, container.firstChild);" in script
+    assert 'class="log-entry-header">Item: ${itemId}</div>' in script
+    assert "<div>Queue: ${queueId}</div>" in script
+    assert "<div>Released: ${formatReleasedAt(releasedAt)}</div>" in script
