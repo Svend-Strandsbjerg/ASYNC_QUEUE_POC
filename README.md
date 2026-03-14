@@ -61,3 +61,41 @@ This foundation intentionally does **not** include:
 - Project-specific architecture implementations
 
 Those belong in downstream repositories created from this template.
+
+## Async Queue POC
+
+Denne repository indeholder en lille, isoleret proof-of-concept for et business-neutralt async queue-framework.
+
+### Kør POC-demo
+
+```bash
+python examples/async_queue_poc.py
+```
+
+Forventet output:
+
+- Step A: queue oprettes/findes via scope-baseret opslag, og initial snapshot vises.
+- Step B: queue pauses, 4 items tilføjes, dispatch forsøges men bliver korrekt skippet.
+- Step C: queue unpauses, dispatch køres, og items ender i terminal state.
+- Step D: dispatch forsøges igen uden redispatch af terminale items.
+- Fake transport-log viser præcis hvilke items der blev “sendt” og i hvilken rækkefølge.
+
+### Kør tests
+
+```bash
+pytest -q
+```
+
+### Hvad POC'en verificerer
+
+- Scope-baseret `get_or_create_queue` ergonomi via repository-abstraktion.
+- Pause/resume lifecycle, hvor `resume` genskaber forrige state i stedet for blindt at sætte `OPEN`.
+- Centraliserede dispatch-regler: kun dispatchable items sendes, terminale items redispatches ikke.
+- Metadata isolation: input-metadata deep-copy'es, så caller-mutation ikke ændrer queueens lagrede metadata.
+- Snapshot/read model giver nok signal til inspektion og debugging (state, items, activity log).
+
+### Antagelser og gaps
+
+- Fake transport returnerer altid succes for at holde POC'en minimal og deterministisk.
+- Repository er in-memory (ingen persistens eller concurrent locking i denne demo).
+- Naturligt næste skridt er at koble samme abstractions til en persistent repository-implementering og mere avanceret dispatch-fejlhåndtering.
