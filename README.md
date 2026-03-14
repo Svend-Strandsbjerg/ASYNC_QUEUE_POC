@@ -46,18 +46,16 @@ Open:
 - `POST /queues/{name}/resume`
 - `POST /queues/{name}/items`
 - `POST /queues/{name}/dispatch` (debug/manual)
-- `POST /test/generate`
 - `POST /test/run`
 - `GET /transport/log`
 
 ## Demo flow in UI
 
-1. Generate test queues (example: 4 queues, 2 items each, paused indices `1,4`).
-2. Confirm queue badges show a mix of `PAUSED` and `OPEN`.
+1. Create queues manually in the UI (for example: Queue A, Queue B, Queue C).
+2. Add items to each queue and pause whichever queues should be held back.
 3. Click **Run Test**.
-4. Verify paused queues are skipped and open queues send items.
-5. Inspect activity log and dummy transport log for per-queue outcomes.
-6. Optionally use the selected-queue debug dispatch button for manual checks.
+4. Verify open queues send all pending items in insertion order and paused queues remain pending.
+5. Inspect queue details, activity log, and dummy transport log for processing order and skipped queues.
 
 ## Run tests
 

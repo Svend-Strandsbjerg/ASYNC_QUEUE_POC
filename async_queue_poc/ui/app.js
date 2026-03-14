@@ -5,16 +5,13 @@ const transportLogEl = document.getElementById("transport-log");
 
 const queueNameInput = document.getElementById("queue-name-input");
 const itemInput = document.getElementById("item-input");
-const queueCountInput = document.getElementById("queue-count-input");
-const itemsPerQueueInput = document.getElementById("items-per-queue-input");
-const pausedIndicesInput = document.getElementById("paused-indices-input");
 
 let selectedQueueName = null;
 const activityLog = [];
 
 function logActivity(message) {
   activityLog.unshift(`${new Date().toLocaleTimeString()} - ${message}`);
-  if (activityLog.length > 60) {
+  if (activityLog.length > 80) {
     activityLog.pop();
   }
   renderActivityLog();
@@ -148,54 +145,26 @@ async function withAction(action, successMessage) {
   }
 }
 
-function parsePausedIndices() {
-  return pausedIndicesInput.value
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0)
-    .map((value) => Number.parseInt(value, 10) - 1)
-    .filter((value) => Number.isInteger(value) && value >= 0);
-}
-
 document.getElementById("run-test-btn").addEventListener("click", async () => {
   await withAction(async () => {
+    logActivity("Run Test started");
     const payload = await requestJson("/test/run", { method: "POST" });
-    logActivity(
-      `Run Test complete: processed=${payload.queues_processed}, skipped=${payload.queues_skipped}, sent=${payload.items_sent}`
-    );
 
     for (const result of payload.results) {
+      logActivity(`Queue processing started: ${result.queue}`);
       if (result.status === "SKIPPED") {
-        logActivity(`Queue ${result.queue} skipped (paused)`);
+        logActivity(`Queue skipped because paused: ${result.queue}`);
       } else {
-        logActivity(`Queue ${result.queue} sent ${result.items_sent} items`);
+        for (const item of result.items_sent) {
+          logActivity(`Item sent: ${result.queue} → ${item}`);
+        }
       }
+      logActivity(`Queue processing completed: ${result.queue}`);
     }
-  });
-});
 
-document.getElementById("generate-queues-btn").addEventListener("click", async () => {
-  const queueCount = Number.parseInt(queueCountInput.value, 10);
-  const itemsPerQueue = Number.parseInt(itemsPerQueueInput.value, 10);
-  if (!Number.isInteger(queueCount) || queueCount <= 0) {
-    logActivity("Queue count must be a positive integer");
-    return;
-  }
-  if (!Number.isInteger(itemsPerQueue) || itemsPerQueue < 0) {
-    logActivity("Items per queue must be a non-negative integer");
-    return;
-  }
-
-  await withAction(async () => {
-    const payload = await requestJson("/test/generate", {
-      method: "POST",
-      body: JSON.stringify({
-        queue_count: queueCount,
-        items_per_queue: itemsPerQueue,
-        paused_queue_indices: parsePausedIndices(),
-      }),
-    });
-    logActivity(`Generated ${payload.created} queues for test run`);
+    logActivity(
+      `Run Test completed: processed=${payload.queues_processed}, skipped=${payload.queues_skipped}, sent=${payload.items_sent}`
+    );
   });
 });
 
@@ -250,18 +219,6 @@ document.getElementById("add-item-btn").addEventListener("click", async () => {
       }),
     `Item added to ${selectedQueueName}: ${item}`
   );
-});
-
-document.getElementById("dispatch-btn").addEventListener("click", async () => {
-  if (!selectedQueueName) return;
-  await withAction(async () => {
-    const payload = await requestJson(`/queues/${selectedQueueName}/dispatch`, { method: "POST" });
-    if (payload.dispatched_item) {
-      logActivity(`Debug dispatch: ${selectedQueueName} -> ${payload.dispatched_item}`);
-    } else {
-      logActivity(`Debug dispatch: no item dispatched for ${selectedQueueName}`);
-    }
-  });
 });
 
 document.getElementById("refresh-btn").addEventListener("click", () => {

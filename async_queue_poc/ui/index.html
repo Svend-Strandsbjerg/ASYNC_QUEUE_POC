@@ -25,23 +25,6 @@
         <h2>Queue Details & Controls</h2>
         <div class="controls">
           <div class="control-group">
-            <h3>Generate test queues</h3>
-            <label>
-              Number of queues
-              <input id="queue-count-input" type="number" value="4" min="1" />
-            </label>
-            <label>
-              Items per queue
-              <input id="items-per-queue-input" type="number" value="2" min="0" />
-            </label>
-            <label>
-              Paused queue indices (1-based, comma-separated)
-              <input id="paused-indices-input" placeholder="1,4" />
-            </label>
-            <button id="generate-queues-btn">Generate Queues</button>
-          </div>
-
-          <div class="control-group">
             <h3>Manual queue controls</h3>
             <label>
               Queue name
@@ -58,7 +41,6 @@
               <button id="pause-btn">Pause</button>
               <button id="resume-btn">Resume</button>
               <button id="add-item-btn">Add Item</button>
-              <button id="dispatch-btn">Dispatch (Debug)</button>
             </div>
           </div>
         </div>
