@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Async Queue POC UI</title>
+    <link rel="stylesheet" href="/ui/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Async Queue POC</h1>
+      <button id="refresh-btn">Refresh</button>
+    </header>
+
+    <main class="layout">
+      <section class="panel" id="queues-panel">
+        <h2>Queues</h2>
+        <div id="queue-list" class="queue-list"></div>
+      </section>
+
+      <section class="panel" id="details-panel">
+        <h2>Selected Queue</h2>
+        <div class="controls">
+          <label>
+            Queue name
+            <input id="queue-name-input" placeholder="demo" />
+          </label>
+          <button id="create-queue-btn">Create Queue</button>
+
+          <label>
+            Item payload
+            <input id="item-input" placeholder="example-item" />
+          </label>
+
+          <div class="button-row">
+            <button id="pause-btn">Pause</button>
+            <button id="resume-btn">Resume</button>
+            <button id="add-item-btn">Add Item</button>
+            <button id="dispatch-btn">Dispatch</button>
+          </div>
+        </div>
+
+        <div id="selected-queue" class="selected-queue">
+          <p>No queue selected.</p>
+        </div>
+      </section>
+
+      <section class="panel" id="log-panel">
+        <h2>Logs / Output</h2>
+
+        <h3>Activity log</h3>
+        <ul id="activity-log" class="log-list"></ul>
+
+        <h3>Dummy transport log</h3>
+        <ul id="transport-log" class="log-list"></ul>
+      </section>
+    </main>
+
+    <script src="/ui/app.js"></script>
+  </body>
+</html>

@@ -1,33 +1,62 @@
 # ASYNC_QUEUE_POC
 
-Minimal proof-of-concept for queue flow verification, now with a **thin interactive CLI layer** so flow can be demonstrated manually.
+Minimal proof-of-concept for queue flow verification.
 
 ## What is included
 
-- Minimal queue/domain core (`Queue`) for pause/resume/add/dispatch/snapshot behavior.
-- Thin CLI wrapper with commands:
-  - `create-queue`
-  - `pause-queue`
-  - `add-item`
-  - `show-snapshot`
-  - `resume-queue`
-  - `dispatch`
-- Tests for both domain behavior and interactive wrapper behavior.
+- Existing in-memory queue domain (`async_queue_poc.domain`) with pause/resume/add/dispatch/snapshot behavior.
+- CLI wrapper (`async_queue_poc.cli`) for terminal-driven interaction.
+- FastAPI wrapper (`async_queue_poc.api`) exposing queue operations as REST endpoints.
+- Minimal browser UI (`async_queue_poc/ui`) for local debugging and visual flow checks.
+- Tests covering domain, CLI, and API wrappers.
 
 ## Project structure
 
 - `async_queue_poc/domain.py`: queue/domain logic.
-- `async_queue_poc/cli.py`: CLI wrapper around existing queue logic.
-- `tests/test_domain_queue.py`: domain tests.
-- `tests/test_cli_wrapper.py`: wrapper-level interaction test.
+- `async_queue_poc/cli.py`: CLI wrapper around queue logic.
+- `async_queue_poc/api.py`: FastAPI app and in-memory API service.
+- `async_queue_poc/ui/index.html`: UI layout.
+- `async_queue_poc/ui/app.js`: browser behavior and API calls.
+- `async_queue_poc/ui/styles.css`: simple three-column styling.
+- `tests/`: automated tests.
 
-## Install
+## Install dependencies
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
+pip install -r requirements.txt
 ```
+
+## Run the server (API + UI)
+
+```bash
+python -m uvicorn async_queue_poc.api:app --reload
+```
+
+Open:
+
+- UI: `http://localhost:8000/ui`
+- OpenAPI docs: `http://localhost:8000/docs`
+
+## REST endpoints
+
+- `GET /queues`
+- `POST /queues`
+- `GET /queues/{name}`
+- `POST /queues/{name}/pause`
+- `POST /queues/{name}/resume`
+- `POST /queues/{name}/items`
+- `POST /queues/{name}/dispatch`
+- `GET /transport/log`
+
+## Demo flow in UI
+
+1. Create queue `demo`.
+2. Pause queue.
+3. Add items.
+4. Resume queue.
+5. Dispatch until empty.
+6. Confirm dispatch entries in the dummy transport log.
+7. Dispatch again and confirm no duplicate dispatch.
 
 ## Run tests
 
@@ -35,56 +64,8 @@ pip install -e .[dev]
 pytest
 ```
 
-## Run interactive CLI demo
-
-
-### Kør lokalt backend + UI
-
-Installer dependencies og start FastAPI-servicen (inkl. UI):
-
-```bash
-pip install -r requirements.txt
-uvicorn async_integration_foundation.local_ui_app:app --reload
-```
-
-URL'er:
-
-- UI: `http://127.0.0.1:8000/`
-- API docs: `http://127.0.0.1:8000/docs`
-- Queue API base: `http://127.0.0.1:8000/api`
-
-Kort demo-flow i UI:
-
-1. Udfyld scope-felter i midterkolonnen og klik **Create/Get Queue**.
-2. Vælg queue i venstre kolonne.
-3. Klik **Pause** og tilføj 3-5 items via **Add Item**.
-4. Bekræft at items står som `PENDING`, og at sent-log er tom mens queue er paused.
-5. Klik **Resume** og derefter **Dispatch**.
-6. Se items gå til `DISPATCHED` samt entries i højre kolonne under sent-log.
-7. Klik **Dispatch** igen og bekræft at intet redispatches.
-
-UI'et viser både aktive/open/paused queues og queues med historisk dispatch via summary-badges i venstre kolonne.
-
-### Kør tests
+## Optional CLI demo
 
 ```bash
 python -m async_queue_poc.cli
 ```
-
-Then run commands, for example:
-
-```text
-create-queue demo
-add-item demo job-1
-show-snapshot demo
-pause-queue demo
-dispatch demo
-resume-queue demo
-dispatch demo
-show-snapshot demo
-```
-
-## Notes
-
-- POC stays minimal and focused on framework/flow verification.
-- CLI layer is intentionally thin and reuses domain logic without rewriting core behavior.
