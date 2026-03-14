@@ -126,6 +126,29 @@ HTML_TEMPLATE = """
     body { font-family: Arial, sans-serif; margin: 0; background: #f6f7f9; }
     .layout { display: grid; grid-template-columns: 1fr 1.2fr 1.2fr; gap: 12px; padding: 12px; height: 100vh; box-sizing: border-box; }
     .col { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 12px; overflow: auto; }
+    .logs-col { display: flex; flex-direction: column; gap: 10px; }
+    .log-panel {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #f9fafb;
+      display: flex;
+      flex-direction: column;
+      height: 260px;
+      min-height: 0;
+    }
+    .log-panel-header { margin: 0; padding: 8px 10px; border-bottom: 1px solid #ddd; font-size: 15px; }
+    .log-panel-body {
+      margin: 0;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: auto;
+      background: #111827;
+      color: #e5e7eb;
+      padding: 8px;
+      border-radius: 0 0 6px 6px;
+      font-size: 12px;
+    }
     h2 { margin-top: 0; }
     .queue { border: 1px solid #ddd; border-radius: 6px; padding: 8px; margin-bottom: 8px; cursor: pointer; }
     .queue.selected { border-color: #2563eb; background: #eef4ff; }
@@ -173,12 +196,16 @@ HTML_TEMPLATE = """
       <pre id=\"snapshot\">{}</pre>
     </div>
 
-    <div class=\"col\">
+    <div class=\"col logs-col\">
       <h2>Logs / Sent via Dummy API</h2>
-      <h3>Activity log (selected queue)</h3>
-      <pre id=\"activity_log\">[]</pre>
-      <h3>Sent log (fake transport)</h3>
-      <pre id=\"sent_log\">[]</pre>
+      <div class=\"log-panel\" data-testid=\"activity-log-panel\">
+        <h3 class=\"log-panel-header\">Activity log (selected queue)</h3>
+        <pre id=\"activity_log\" class=\"log-panel-body\">[]</pre>
+      </div>
+      <div class=\"log-panel\" data-testid=\"sent-log-panel\">
+        <h3 class=\"log-panel-header\">Sent log (fake transport)</h3>
+        <pre id=\"sent_log\" class=\"log-panel-body\">[]</pre>
+      </div>
     </div>
   </div>
 
