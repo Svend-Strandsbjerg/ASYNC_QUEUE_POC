@@ -7,27 +7,32 @@ const queueNameInput = document.getElementById("queue-name-input");
 const itemInput = document.getElementById("item-input");
 
 let selectedQueueName = null;
-const activityLog = [];
+const MAX_ACTIVITY_LOG_ENTRIES = 80;
 
-function logActivity(message) {
-  activityLog.unshift(`${new Date().toLocaleTimeString()} - ${message}`);
-  if (activityLog.length > 80) {
-    activityLog.pop();
-  }
-  renderActivityLog();
+function prependLogEntry(container, element) {
+  container.insertBefore(element, container.firstChild);
 }
 
-function renderActivityLog() {
-  activityLogEl.innerHTML = "";
-  if (!activityLog.length) {
-    activityLogEl.innerHTML = "<li>No activity yet.</li>";
-    return;
+function clearLog(container, emptyMessage) {
+  container.innerHTML = "";
+  const li = document.createElement("li");
+  li.textContent = emptyMessage;
+  li.dataset.emptyState = "true";
+  container.appendChild(li);
+}
+
+function logActivity(message) {
+  const emptyState = activityLogEl.querySelector("li[data-empty-state='true']");
+  if (emptyState) {
+    emptyState.remove();
   }
 
-  for (const entry of activityLog) {
-    const li = document.createElement("li");
-    li.textContent = entry;
-    activityLogEl.appendChild(li);
+  const li = document.createElement("li");
+  li.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
+  prependLogEntry(activityLogEl, li);
+
+  while (activityLogEl.children.length > MAX_ACTIVITY_LOG_ENTRIES) {
+    activityLogEl.lastElementChild?.remove();
   }
 }
 
@@ -115,22 +120,28 @@ function formatReleasedAt(releasedAt) {
 }
 
 function renderTransportLog(entries) {
-  transportLogEl.innerHTML = "";
+  clearLog(transportLogEl, "No sent items yet.");
   if (!entries.length) {
-    transportLogEl.innerHTML = "<li>No sent items yet.</li>";
     return;
   }
 
+  transportLogEl.innerHTML = "";
+
   for (const entry of entries) {
     const li = document.createElement("li");
-    const releasedAt = entry.released_at || entry.timestamp;
+    const releasedAt = entry.released_at || entry.sent_at || entry.timestamp;
+    const itemId = entry.item_id || entry.item;
+    const queueId = entry.queue_id || entry.queue;
     li.innerHTML = `
-      <article class="transport-log-card">
-        <div class="transport-log-title">Item: ${entry.item} — Queue: ${entry.queue}</div>
-        <div class="transport-log-meta">Released at: ${formatReleasedAt(releasedAt)}</div>
+      <article class="log-entry" data-testid="sent-log-entry">
+        <div class="log-entry-header">Item: ${itemId}</div>
+        <div class="log-entry-body">
+          <div>Queue: ${queueId}</div>
+          <div>Released: ${formatReleasedAt(releasedAt)}</div>
+        </div>
       </article>
     `;
-    transportLogEl.appendChild(li);
+    prependLogEntry(transportLogEl, li);
   }
 }
 
@@ -246,5 +257,5 @@ document.getElementById("refresh-btn").addEventListener("click", () => {
   withAction(async () => {}, "Manual refresh");
 });
 
-renderActivityLog();
+clearLog(activityLogEl, "No activity yet.");
 refreshAll().catch((error) => logActivity(`Error: ${error.message}`));
