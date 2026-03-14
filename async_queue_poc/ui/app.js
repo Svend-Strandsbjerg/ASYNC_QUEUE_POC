@@ -5,13 +5,16 @@ const transportLogEl = document.getElementById("transport-log");
 
 const queueNameInput = document.getElementById("queue-name-input");
 const itemInput = document.getElementById("item-input");
+const queueCountInput = document.getElementById("queue-count-input");
+const itemsPerQueueInput = document.getElementById("items-per-queue-input");
+const pausedIndicesInput = document.getElementById("paused-indices-input");
 
 let selectedQueueName = null;
 const activityLog = [];
 
 function logActivity(message) {
   activityLog.unshift(`${new Date().toLocaleTimeString()} - ${message}`);
-  if (activityLog.length > 30) {
+  if (activityLog.length > 60) {
     activityLog.pop();
   }
   renderActivityLog();
@@ -40,6 +43,11 @@ async function requestJson(url, options = {}) {
   return response.json();
 }
 
+function queueStateBadge(state) {
+  const tone = state === "PAUSED" ? "badge-paused" : "badge-open";
+  return `<span class="state-badge ${tone}">${state}</span>`;
+}
+
 function renderQueueList(queues) {
   queueListEl.innerHTML = "";
 
@@ -55,9 +63,12 @@ function renderQueueList(queues) {
       card.classList.add("active");
     }
     card.innerHTML = `
-      <strong>${queue.name}</strong><br />
-      ${queue.state}<br />
-      items: ${queue.item_count}
+      <div class="queue-header">
+        <strong>${queue.name}</strong>
+        ${queueStateBadge(queue.state)}
+      </div>
+      <small>pending: ${queue.item_count}</small><br />
+      <small>sent: ${queue.sent_item_count}</small>
     `;
     card.addEventListener("click", async () => {
       selectedQueueName = queue.name;
@@ -74,13 +85,19 @@ function renderSelectedQueue(snapshot) {
   }
 
   const itemsMarkup = snapshot.items.length
-    ? `<ul>${snapshot.items.map((item) => `<li>${item} &nbsp; <em>PENDING</em></li>`).join("")}</ul>`
-    : "<p>No pending items.</p>";
+    ? `<ul>${snapshot.items
+        .map(
+          (item) =>
+            `<li>${item.payload} &nbsp; <em class="item-status-${item.status.toLowerCase()}">${item.status}</em></li>`
+        )
+        .join("")}</ul>`
+    : "<p>No items in queue.</p>";
 
   selectedQueueEl.innerHTML = `
     <p><strong>Name:</strong> ${snapshot.name}</p>
-    <p><strong>State:</strong> ${snapshot.state}</p>
-    <p><strong>Items:</strong> ${snapshot.size}</p>
+    <p><strong>State:</strong> ${queueStateBadge(snapshot.state)}</p>
+    <p><strong>Pending:</strong> ${snapshot.size}</p>
+    <p><strong>Sent:</strong> ${snapshot.sent_count}</p>
     ${itemsMarkup}
   `;
 }
@@ -88,7 +105,7 @@ function renderSelectedQueue(snapshot) {
 function renderTransportLog(entries) {
   transportLogEl.innerHTML = "";
   if (!entries.length) {
-    transportLogEl.innerHTML = "<li>No dispatched items yet.</li>";
+    transportLogEl.innerHTML = "<li>No sent items yet.</li>";
     return;
   }
 
@@ -111,6 +128,8 @@ async function refreshAll() {
       selectedQueueName = null;
       renderSelectedQueue(null);
     }
+  } else {
+    renderSelectedQueue(null);
   }
 
   const transportEntries = await requestJson("/transport/log");
@@ -120,12 +139,65 @@ async function refreshAll() {
 async function withAction(action, successMessage) {
   try {
     await action();
-    logActivity(successMessage);
+    if (successMessage) {
+      logActivity(successMessage);
+    }
     await refreshAll();
   } catch (error) {
     logActivity(`Error: ${error.message}`);
   }
 }
+
+function parsePausedIndices() {
+  return pausedIndicesInput.value
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .map((value) => Number.parseInt(value, 10) - 1)
+    .filter((value) => Number.isInteger(value) && value >= 0);
+}
+
+document.getElementById("run-test-btn").addEventListener("click", async () => {
+  await withAction(async () => {
+    const payload = await requestJson("/test/run", { method: "POST" });
+    logActivity(
+      `Run Test complete: processed=${payload.queues_processed}, skipped=${payload.queues_skipped}, sent=${payload.items_sent}`
+    );
+
+    for (const result of payload.results) {
+      if (result.status === "SKIPPED") {
+        logActivity(`Queue ${result.queue} skipped (paused)`);
+      } else {
+        logActivity(`Queue ${result.queue} sent ${result.items_sent} items`);
+      }
+    }
+  });
+});
+
+document.getElementById("generate-queues-btn").addEventListener("click", async () => {
+  const queueCount = Number.parseInt(queueCountInput.value, 10);
+  const itemsPerQueue = Number.parseInt(itemsPerQueueInput.value, 10);
+  if (!Number.isInteger(queueCount) || queueCount <= 0) {
+    logActivity("Queue count must be a positive integer");
+    return;
+  }
+  if (!Number.isInteger(itemsPerQueue) || itemsPerQueue < 0) {
+    logActivity("Items per queue must be a non-negative integer");
+    return;
+  }
+
+  await withAction(async () => {
+    const payload = await requestJson("/test/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        queue_count: queueCount,
+        items_per_queue: itemsPerQueue,
+        paused_queue_indices: parsePausedIndices(),
+      }),
+    });
+    logActivity(`Generated ${payload.created} queues for test run`);
+  });
+});
 
 document.getElementById("create-queue-btn").addEventListener("click", async () => {
   const queueName = queueNameInput.value.trim();
@@ -171,10 +243,11 @@ document.getElementById("add-item-btn").addEventListener("click", async () => {
   }
 
   await withAction(
-    async () => requestJson(`/queues/${selectedQueueName}/items`, {
-      method: "POST",
-      body: JSON.stringify({ item }),
-    }),
+    async () =>
+      requestJson(`/queues/${selectedQueueName}/items`, {
+        method: "POST",
+        body: JSON.stringify({ item }),
+      }),
     `Item added to ${selectedQueueName}: ${item}`
   );
 });
@@ -184,11 +257,11 @@ document.getElementById("dispatch-btn").addEventListener("click", async () => {
   await withAction(async () => {
     const payload = await requestJson(`/queues/${selectedQueueName}/dispatch`, { method: "POST" });
     if (payload.dispatched_item) {
-      logActivity(`Item dispatched from ${selectedQueueName}: ${payload.dispatched_item}`);
+      logActivity(`Debug dispatch: ${selectedQueueName} -> ${payload.dispatched_item}`);
     } else {
-      logActivity(`No item dispatched for ${selectedQueueName}`);
+      logActivity(`Debug dispatch: no item dispatched for ${selectedQueueName}`);
     }
-  }, `Dispatch requested: ${selectedQueueName}`);
+  });
 });
 
 document.getElementById("refresh-btn").addEventListener("click", () => {

@@ -9,7 +9,10 @@
   <body>
     <header>
       <h1>Async Queue POC</h1>
-      <button id="refresh-btn">Refresh</button>
+      <div class="header-actions">
+        <button id="run-test-btn" class="primary">Run Test</button>
+        <button id="refresh-btn">Refresh</button>
+      </div>
     </header>
 
     <main class="layout">
@@ -19,24 +22,44 @@
       </section>
 
       <section class="panel" id="details-panel">
-        <h2>Selected Queue</h2>
+        <h2>Queue Details & Controls</h2>
         <div class="controls">
-          <label>
-            Queue name
-            <input id="queue-name-input" placeholder="demo" />
-          </label>
-          <button id="create-queue-btn">Create Queue</button>
+          <div class="control-group">
+            <h3>Generate test queues</h3>
+            <label>
+              Number of queues
+              <input id="queue-count-input" type="number" value="4" min="1" />
+            </label>
+            <label>
+              Items per queue
+              <input id="items-per-queue-input" type="number" value="2" min="0" />
+            </label>
+            <label>
+              Paused queue indices (1-based, comma-separated)
+              <input id="paused-indices-input" placeholder="1,4" />
+            </label>
+            <button id="generate-queues-btn">Generate Queues</button>
+          </div>
 
-          <label>
-            Item payload
-            <input id="item-input" placeholder="example-item" />
-          </label>
+          <div class="control-group">
+            <h3>Manual queue controls</h3>
+            <label>
+              Queue name
+              <input id="queue-name-input" placeholder="demo" />
+            </label>
+            <button id="create-queue-btn">Create Queue</button>
 
-          <div class="button-row">
-            <button id="pause-btn">Pause</button>
-            <button id="resume-btn">Resume</button>
-            <button id="add-item-btn">Add Item</button>
-            <button id="dispatch-btn">Dispatch</button>
+            <label>
+              Item payload
+              <input id="item-input" placeholder="example-item" />
+            </label>
+
+            <div class="button-row">
+              <button id="pause-btn">Pause</button>
+              <button id="resume-btn">Resume</button>
+              <button id="add-item-btn">Add Item</button>
+              <button id="dispatch-btn">Dispatch (Debug)</button>
+            </div>
           </div>
         </div>
 
@@ -46,7 +69,7 @@
       </section>
 
       <section class="panel" id="log-panel">
-        <h2>Logs / Output</h2>
+        <h2>Logs / Test Results</h2>
 
         <h3>Activity log</h3>
         <ul id="activity-log" class="log-list"></ul>

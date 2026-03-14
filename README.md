@@ -45,18 +45,19 @@ Open:
 - `POST /queues/{name}/pause`
 - `POST /queues/{name}/resume`
 - `POST /queues/{name}/items`
-- `POST /queues/{name}/dispatch`
+- `POST /queues/{name}/dispatch` (debug/manual)
+- `POST /test/generate`
+- `POST /test/run`
 - `GET /transport/log`
 
 ## Demo flow in UI
 
-1. Create queue `demo`.
-2. Pause queue.
-3. Add items.
-4. Resume queue.
-5. Dispatch until empty.
-6. Confirm dispatch entries in the dummy transport log.
-7. Dispatch again and confirm no duplicate dispatch.
+1. Generate test queues (example: 4 queues, 2 items each, paused indices `1,4`).
+2. Confirm queue badges show a mix of `PAUSED` and `OPEN`.
+3. Click **Run Test**.
+4. Verify paused queues are skipped and open queues send items.
+5. Inspect activity log and dummy transport log for per-queue outcomes.
+6. Optionally use the selected-queue debug dispatch button for manual checks.
 
 ## Run tests
 

@@ -13,6 +13,7 @@ class QueueSnapshot(Generic[T]):
     is_paused: bool
     size: int
     pending_items: list[T]
+    dispatched_items: list[T]
 
 
 class Queue(Generic[T]):
@@ -22,6 +23,7 @@ class Queue(Generic[T]):
         self._name = name
         self._is_paused = False
         self._items: Deque[T] = deque()
+        self._dispatched_items: list[T] = []
 
     @property
     def name(self) -> str:
@@ -43,7 +45,9 @@ class Queue(Generic[T]):
     def dispatch(self) -> T | None:
         if self._is_paused or not self._items:
             return None
-        return self._items.popleft()
+        item = self._items.popleft()
+        self._dispatched_items.append(item)
+        return item
 
     def snapshot(self) -> QueueSnapshot[T]:
         return QueueSnapshot(
@@ -51,4 +55,5 @@ class Queue(Generic[T]):
             is_paused=self._is_paused,
             size=len(self._items),
             pending_items=list(self._items),
+            dispatched_items=list(self._dispatched_items),
         )
