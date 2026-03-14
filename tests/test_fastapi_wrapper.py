@@ -89,6 +89,8 @@ def test_sent_log_reflects_global_processing_order() -> None:
         ("Queue A", "A2"),
         ("Queue C", "C1"),
     ]
+    assert all("released_at" in entry for entry in entries)
+    assert all(entry["released_at"] == entry["timestamp"] for entry in entries)
 
 
 def test_generate_test_endpoint_removed_from_main_flow() -> None:
@@ -117,6 +119,9 @@ def test_list_queues_and_static_ui_mount() -> None:
     assert "Activity Log" in ui_response.text
     assert "LOG 2" in ui_response.text
     assert "Sent Items Log" in ui_response.text
+    assert "log-scroll-area" in ui_response.text
+    assert "activity-log-list" in ui_response.text
+    assert "transport-log-list" in ui_response.text
     assert "Generate test queues" not in ui_response.text
 
 

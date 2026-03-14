@@ -136,11 +136,13 @@ class QueueService:
         self._transport_log.clear()
 
     def _record_sent_item(self, queue_name: str, item: str) -> None:
+        released_at = datetime.now(tz=timezone.utc).isoformat()
         self._transport_log.append(
             {
                 "queue": queue_name,
                 "item": item,
-                "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+                "released_at": released_at,
+                "timestamp": released_at,
             }
         )
 

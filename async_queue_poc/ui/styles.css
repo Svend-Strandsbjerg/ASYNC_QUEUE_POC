@@ -140,6 +140,7 @@ button.primary {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 300px;
 }
 
 .log-card-header {
@@ -155,6 +156,12 @@ button.primary {
   color: #4b5563;
   font-size: 13px;
 }
+.log-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .log-list {
   list-style: none;
   padding: 0;
@@ -163,14 +170,32 @@ button.primary {
   gap: 6px;
 }
 
-.log-list li {
+.activity-log-list li {
   font-size: 14px;
   border-bottom: 1px solid #e5e7eb;
   padding-bottom: 4px;
 }
 
-.log-card .log-list {
-  overflow-y: auto;
+.transport-log-list li {
+  list-style: none;
+}
+
+.transport-log-card {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px 10px;
+}
+
+.transport-log-title {
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.transport-log-meta {
+  color: #374151;
+  font-size: 13px;
 }
 
 .selected-queue ul {

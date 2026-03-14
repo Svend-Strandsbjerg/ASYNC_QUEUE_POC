@@ -104,6 +104,16 @@ function renderSelectedQueue(snapshot) {
   `;
 }
 
+function formatReleasedAt(releasedAt) {
+  const releaseDate = new Date(releasedAt);
+  if (Number.isNaN(releaseDate.getTime())) {
+    return releasedAt;
+  }
+
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${releaseDate.getFullYear()}-${pad(releaseDate.getMonth() + 1)}-${pad(releaseDate.getDate())} ${pad(releaseDate.getHours())}:${pad(releaseDate.getMinutes())}:${pad(releaseDate.getSeconds())}`;
+}
+
 function renderTransportLog(entries) {
   transportLogEl.innerHTML = "";
   if (!entries.length) {
@@ -113,7 +123,13 @@ function renderTransportLog(entries) {
 
   for (const entry of entries) {
     const li = document.createElement("li");
-    li.textContent = `${entry.queue} → ${entry.item} (${entry.timestamp})`;
+    const releasedAt = entry.released_at || entry.timestamp;
+    li.innerHTML = `
+      <article class="transport-log-card">
+        <div class="transport-log-title">Item: ${entry.item} — Queue: ${entry.queue}</div>
+        <div class="transport-log-meta">Released at: ${formatReleasedAt(releasedAt)}</div>
+      </article>
+    `;
     transportLogEl.appendChild(li);
   }
 }
