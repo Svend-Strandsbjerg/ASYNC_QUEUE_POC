@@ -19,6 +19,11 @@ function logActivity(message) {
 
 function renderActivityLog() {
   activityLogEl.innerHTML = "";
+  if (!activityLog.length) {
+    activityLogEl.innerHTML = "<li>No activity yet.</li>";
+    return;
+  }
+
   for (const entry of activityLog) {
     const li = document.createElement("li");
     li.textContent = entry;
@@ -225,4 +230,5 @@ document.getElementById("refresh-btn").addEventListener("click", () => {
   withAction(async () => {}, "Manual refresh");
 });
 
+renderActivityLog();
 refreshAll().catch((error) => logActivity(`Error: ${error.message}`));
