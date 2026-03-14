@@ -21,13 +21,6 @@ class AddItemRequest(BaseModel):
     item: str
 
 
-class GenerateQueuesRequest(BaseModel):
-    queue_count: int = Field(ge=1, le=50)
-    items_per_queue: int = Field(ge=0, le=100)
-    paused_queue_indices: list[int] = Field(default_factory=list)
-    queue_prefix: str = Field(default="Queue")
-
-
 class QueueService:
     """Thin in-memory service that wraps the queue domain objects for API/UI use."""
 
@@ -88,7 +81,6 @@ class QueueService:
                         "queue": queue.name,
                         "status": "SKIPPED",
                         "reason": "paused",
-                        "items_sent": 0,
                         "remaining_items": queue.snapshot().size,
                     }
                 )
@@ -107,8 +99,7 @@ class QueueService:
                 {
                     "queue": queue.name,
                     "status": "SENT",
-                    "items_sent": len(sent_items),
-                    "sent_items": sent_items,
+                    "items_sent": sent_items,
                     "remaining_items": queue.snapshot().size,
                 }
             )
@@ -119,27 +110,6 @@ class QueueService:
             "items_sent": items_sent,
             "results": results,
         }
-
-    def generate_test_queues(
-        self,
-        queue_count: int,
-        items_per_queue: int,
-        paused_queue_indices: list[int],
-        queue_prefix: str,
-    ) -> list[dict[str, object]]:
-        created_queues: list[dict[str, object]] = []
-        for idx in range(queue_count):
-            queue_name = f"{queue_prefix}-{idx + 1}"
-            if queue_name in self._queues:
-                continue
-            queue = Queue[str](queue_name)
-            for item_idx in range(items_per_queue):
-                queue.add_item(f"{queue_name}-item-{item_idx + 1}")
-            if idx in paused_queue_indices:
-                queue.pause()
-            self._queues[queue_name] = queue
-            created_queues.append(self._serialize_queue(queue))
-        return created_queues
 
     def queue_snapshot(self, name: str) -> dict[str, object]:
         queue = self.get_queue(name)
@@ -244,17 +214,6 @@ def dispatch_item(name: str) -> dict[str, object]:
 @app.post("/test/run")
 def run_test() -> dict[str, object]:
     return service.run_test()
-
-
-@app.post("/test/generate")
-def generate_test_queues(payload: GenerateQueuesRequest) -> dict[str, object]:
-    created_queues = service.generate_test_queues(
-        queue_count=payload.queue_count,
-        items_per_queue=payload.items_per_queue,
-        paused_queue_indices=payload.paused_queue_indices,
-        queue_prefix=payload.queue_prefix,
-    )
-    return {"created": len(created_queues), "queues": created_queues}
 
 
 @app.get("/transport/log")
