@@ -12,6 +12,9 @@ class QueueController:
     def __init__(self):
         self._queues: dict[str, Queue[str]] = {}
 
+    def _get_queue(self, name: str) -> Queue[str] | None:
+        return self._queues.get(name)
+
     def create_queue(self, name: str) -> dict[str, Any]:
         if name in self._queues:
             return {"error": f"Queue '{name}' already exists."}
@@ -19,35 +22,35 @@ class QueueController:
         return {"queue": asdict(self._queues[name].snapshot())}
 
     def pause_queue(self, name: str) -> dict[str, Any]:
-        queue = self._queues.get(name)
+        queue = self._get_queue(name)
         if not queue:
             return {"error": f"Queue '{name}' not found."}
         queue.pause()
         return {"queue": asdict(queue.snapshot())}
 
     def resume_queue(self, name: str) -> dict[str, Any]:
-        queue = self._queues.get(name)
+        queue = self._get_queue(name)
         if not queue:
             return {"error": f"Queue '{name}' not found."}
         queue.resume()
         return {"queue": asdict(queue.snapshot())}
 
     def add_item(self, name: str, item: str) -> dict[str, Any]:
-        queue = self._queues.get(name)
+        queue = self._get_queue(name)
         if not queue:
             return {"error": f"Queue '{name}' not found."}
         queue.add_item(item)
         return {"queue": asdict(queue.snapshot())}
 
     def dispatch(self, name: str) -> dict[str, Any]:
-        queue = self._queues.get(name)
+        queue = self._get_queue(name)
         if not queue:
             return {"error": f"Queue '{name}' not found."}
         item = queue.dispatch()
         return {"dispatched_item": item, "queue": asdict(queue.snapshot())}
 
     def show_snapshot(self, name: str) -> dict[str, Any]:
-        queue = self._queues.get(name)
+        queue = self._get_queue(name)
         if not queue:
             return {"error": f"Queue '{name}' not found."}
         return {"queue": asdict(queue.snapshot())}
@@ -72,19 +75,19 @@ def _execute_command(controller: QueueController, argv: list[str]) -> dict[str, 
     parser = _build_parser()
     parsed = parser.parse_args(argv)
 
-    if parsed.command == "create-queue":
-        return controller.create_queue(parsed.name)
-    if parsed.command == "pause-queue":
-        return controller.pause_queue(parsed.name)
-    if parsed.command == "resume-queue":
-        return controller.resume_queue(parsed.name)
-    if parsed.command == "dispatch":
-        return controller.dispatch(parsed.name)
-    if parsed.command == "show-snapshot":
-        return controller.show_snapshot(parsed.name)
-    if parsed.command == "add-item":
-        return controller.add_item(parsed.name, parsed.item)
-    return {"error": "Unknown command."}
+    handlers = {
+        "create-queue": lambda: controller.create_queue(parsed.name),
+        "pause-queue": lambda: controller.pause_queue(parsed.name),
+        "resume-queue": lambda: controller.resume_queue(parsed.name),
+        "dispatch": lambda: controller.dispatch(parsed.name),
+        "show-snapshot": lambda: controller.show_snapshot(parsed.name),
+        "add-item": lambda: controller.add_item(parsed.name, parsed.item),
+    }
+
+    handler = handlers.get(parsed.command)
+    if handler is None:
+        return {"error": "Unknown command."}
+    return handler()
 
 
 def main() -> None:
