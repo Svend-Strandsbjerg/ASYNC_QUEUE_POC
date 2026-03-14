@@ -165,3 +165,6 @@ class InMemoryQueueRepository:
         if key not in self._queues_by_scope:
             self._queues_by_scope[key] = AsyncQueue(scope=scope)
         return self._queues_by_scope[key]
+
+    def list_queues(self) -> list[AsyncQueue]:
+        return list(self._queues_by_scope.values())
