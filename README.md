@@ -1,63 +1,62 @@
-# AI-First Engineering Repository Foundation
+# ASYNC_QUEUE_POC
 
-This repository is a **reusable project foundation** for teams that build software with both human engineers and AI agents.
+Minimal proof-of-concept for queue flow verification, now with a **thin interactive CLI layer** so flow can be demonstrated manually.
 
-It is intentionally generic: it provides standards, process guidance, contribution workflows, and CI quality gates without introducing product-specific code.
+## What is included
 
-## Why this foundation exists
+- Minimal queue/domain core (`Queue`) for pause/resume/add/dispatch/snapshot behavior.
+- Thin CLI wrapper with commands:
+  - `create-queue`
+  - `pause-queue`
+  - `add-item`
+  - `show-snapshot`
+  - `resume-queue`
+  - `dispatch`
+- Tests for both domain behavior and interactive wrapper behavior.
 
-Many projects fail to scale safely with AI assistance because expectations are implicit or inconsistent. This foundation makes those expectations explicit from day one:
+## Project structure
 
-- Branch-based development (no direct work on `main`)
-- Pull requests as the unit of change and review
-- Documented standards for code, tests, and docs
-- CI checks that validate repository hygiene
-- Human-reviewed merges for production-quality governance
+- `async_queue_poc/domain.py`: queue/domain logic.
+- `async_queue_poc/cli.py`: CLI wrapper around existing queue logic.
+- `tests/test_domain_queue.py`: domain tests.
+- `tests/test_cli_wrapper.py`: wrapper-level interaction test.
 
-## How this supports AI-assisted development
+## Install
 
-This template treats AI agents as first-class contributors while preserving engineering quality:
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+```
 
-- `AGENTS.md` defines operating rules for AI contributors
-- PR templates require clear scope, test evidence, and risk notes
-- Process docs define a reproducible issue → branch → PR workflow
-- Testing and documentation standards prevent "code-only" changes
+## Run tests
 
-## How to use this template for future projects
+```bash
+pytest
+```
 
-1. Create a new repository from this foundation.
-2. Update placeholders (CODEOWNERS, support contacts, security policy details, CI language/runtime steps).
-3. Add product code incrementally under agreed project directories.
-4. Keep standards/process documentation up to date as the project evolves.
-5. Protect `main` with required status checks and human review rules.
+## Run interactive CLI demo
 
-## Development workflow (high level)
+Start interactive shell:
 
-1. Start from an issue/task with clear scope and acceptance criteria.
-2. Create a short-lived branch.
-3. Implement a small, reviewable change.
-4. Add or update tests and docs as relevant.
-5. Open a pull request using the provided template.
-6. Pass CI checks and complete human review.
-7. Merge into `main` only after approval.
+```bash
+python -m async_queue_poc.cli
+```
 
-## Repository map
+Then run commands, for example:
 
-- `ARCHITECTURE.md`: Operating model for source control, CI, review, and quality gates.
-- `AGENTS.md`: Rules for AI agents contributing safely.
-- `CONTRIBUTING.md`: Contribution guide for humans and AI agents.
-- `docs/standards/`: Engineering, testing, and documentation standards.
-- `docs/process/`: Repeatable workflows for development and PR execution.
-- `.github/`: PR template, issue templates, and CI workflows (repository hygiene plus workflow-file validation).
-- `tests/`: Test scaffolding and repository-level validation scripts.
+```text
+create-queue demo
+add-item demo job-1
+show-snapshot demo
+pause-queue demo
+dispatch demo
+resume-queue demo
+dispatch demo
+show-snapshot demo
+```
 
-## Non-goals of this repository
+## Notes
 
-This foundation intentionally does **not** include:
-
-- Business/domain logic
-- Product UI/API features
-- Demo application layers
-- Project-specific architecture implementations
-
-Those belong in downstream repositories created from this template.
+- POC stays minimal and focused on framework/flow verification.
+- CLI layer is intentionally thin and reuses domain logic without rewriting core behavior.
