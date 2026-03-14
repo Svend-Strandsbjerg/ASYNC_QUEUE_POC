@@ -11,48 +11,71 @@ def clear_state() -> None:
     api.service.reset()
 
 
-def test_full_queue_flow_and_transport_log() -> None:
+def test_run_test_skips_paused_queues_and_sends_open_queue_items() -> None:
     client = TestClient(api.app)
 
-    created = client.post("/queues", json={"name": "demo"})
-    assert created.status_code == 200
-    assert created.json()["state"] == "OPEN"
+    client.post("/queues", json={"name": "A"})
+    client.post("/queues", json={"name": "B"})
+    client.post("/queues/A/pause")
 
-    paused = client.post("/queues/demo/pause")
-    assert paused.status_code == 200
-    assert paused.json()["state"] == "PAUSED"
+    client.post("/queues/A/items", json={"item": "a1"})
+    client.post("/queues/A/items", json={"item": "a2"})
+    client.post("/queues/B/items", json={"item": "b1"})
 
-    add_first = client.post("/queues/demo/items", json={"item": "item1"})
-    add_second = client.post("/queues/demo/items", json={"item": "item2"})
-    assert add_first.status_code == 200
-    assert add_second.status_code == 200
+    run_response = client.post("/test/run")
 
-    snapshot = client.get("/queues/demo")
-    assert snapshot.status_code == 200
-    assert snapshot.json()["items"] == ["item1", "item2"]
+    assert run_response.status_code == 200
+    payload = run_response.json()
+    assert payload["queues_processed"] == 2
+    assert payload["queues_skipped"] == 1
+    assert payload["items_sent"] == 1
 
-    paused_dispatch = client.post("/queues/demo/dispatch")
-    assert paused_dispatch.status_code == 200
-    assert paused_dispatch.json()["dispatched_item"] is None
+    result_by_queue = {result["queue"]: result for result in payload["results"]}
+    assert result_by_queue["A"]["status"] == "SKIPPED"
+    assert result_by_queue["A"]["reason"] == "paused"
+    assert result_by_queue["B"]["status"] == "SENT"
+    assert result_by_queue["B"]["items_sent"] == 1
 
-    resumed = client.post("/queues/demo/resume")
-    assert resumed.status_code == 200
-    assert resumed.json()["state"] == "OPEN"
+    a_snapshot = client.get("/queues/A").json()
+    b_snapshot = client.get("/queues/B").json()
 
-    first_dispatch = client.post("/queues/demo/dispatch")
-    second_dispatch = client.post("/queues/demo/dispatch")
-    third_dispatch = client.post("/queues/demo/dispatch")
+    assert [item["status"] for item in a_snapshot["items"]] == ["PENDING", "PENDING"]
+    assert [item["status"] for item in b_snapshot["items"]] == ["SENT"]
 
-    assert first_dispatch.json()["dispatched_item"] == "item1"
-    assert second_dispatch.json()["dispatched_item"] == "item2"
-    assert third_dispatch.json()["dispatched_item"] is None
+
+def test_multiple_queues_processed_in_single_run_and_sent_log_updated() -> None:
+    client = TestClient(api.app)
+
+    client.post("/test/generate", json={"queue_count": 4, "items_per_queue": 1, "paused_queue_indices": [0, 3]})
+
+    run_response = client.post("/test/run")
+
+    assert run_response.status_code == 200
+    payload = run_response.json()
+    assert payload["queues_processed"] == 4
+    assert payload["queues_skipped"] == 2
+    assert payload["items_sent"] == 2
 
     transport = client.get("/transport/log")
     assert transport.status_code == 200
     entries = transport.json()
     assert len(entries) == 2
-    assert entries[0]["queue"] == "demo"
-    assert entries[0]["item"] == "item1"
+    assert {entry["queue"] for entry in entries} == {"Queue-2", "Queue-3"}
+
+
+def test_dispatch_endpoint_kept_as_debug_action() -> None:
+    client = TestClient(api.app)
+
+    client.post("/queues", json={"name": "demo"})
+    client.post("/queues/demo/items", json={"item": "item1"})
+
+    first_dispatch = client.post("/queues/demo/dispatch")
+    second_dispatch = client.post("/queues/demo/dispatch")
+
+    assert first_dispatch.status_code == 200
+    assert second_dispatch.status_code == 200
+    assert first_dispatch.json()["dispatched_item"] == "item1"
+    assert second_dispatch.json()["dispatched_item"] is None
 
 
 def test_list_queues_and_static_ui_mount() -> None:
@@ -68,7 +91,7 @@ def test_list_queues_and_static_ui_mount() -> None:
 
     ui_response = client.get("/ui")
     assert ui_response.status_code == 200
-    assert "Async Queue POC" in ui_response.text
+    assert "Run Test" in ui_response.text
 
 
 def test_not_found_returns_404() -> None:

@@ -21,6 +21,13 @@ class AddItemRequest(BaseModel):
     item: str
 
 
+class GenerateQueuesRequest(BaseModel):
+    queue_count: int = Field(ge=1, le=50)
+    items_per_queue: int = Field(ge=0, le=100)
+    paused_queue_indices: list[int] = Field(default_factory=list)
+    queue_prefix: str = Field(default="Queue")
+
+
 class QueueService:
     """Thin in-memory service that wraps the queue domain objects for API/UI use."""
 
@@ -62,24 +69,94 @@ class QueueService:
         queue = self.get_queue(name)
         dispatched_item = queue.dispatch()
         if dispatched_item is not None:
-            self._transport_log.append(
-                {
-                    "queue": queue.name,
-                    "item": dispatched_item,
-                    "timestamp": datetime.now(tz=timezone.utc).isoformat(),
-                }
-            )
+            self._record_sent_item(queue.name, dispatched_item)
         return {
             "dispatched_item": dispatched_item,
             "queue": self._serialize_queue(queue),
         }
 
+    def run_test(self) -> dict[str, object]:
+        results: list[dict[str, object]] = []
+        queues_skipped = 0
+        items_sent = 0
+
+        for queue in self._queues.values():
+            if queue.is_paused:
+                queues_skipped += 1
+                results.append(
+                    {
+                        "queue": queue.name,
+                        "status": "SKIPPED",
+                        "reason": "paused",
+                        "items_sent": 0,
+                        "remaining_items": queue.snapshot().size,
+                    }
+                )
+                continue
+
+            sent_items: list[str] = []
+            while True:
+                dispatched_item = queue.dispatch()
+                if dispatched_item is None:
+                    break
+                sent_items.append(dispatched_item)
+                self._record_sent_item(queue.name, dispatched_item)
+
+            items_sent += len(sent_items)
+            results.append(
+                {
+                    "queue": queue.name,
+                    "status": "SENT",
+                    "items_sent": len(sent_items),
+                    "sent_items": sent_items,
+                    "remaining_items": queue.snapshot().size,
+                }
+            )
+
+        return {
+            "queues_processed": len(self._queues),
+            "queues_skipped": queues_skipped,
+            "items_sent": items_sent,
+            "results": results,
+        }
+
+    def generate_test_queues(
+        self,
+        queue_count: int,
+        items_per_queue: int,
+        paused_queue_indices: list[int],
+        queue_prefix: str,
+    ) -> list[dict[str, object]]:
+        created_queues: list[dict[str, object]] = []
+        for idx in range(queue_count):
+            queue_name = f"{queue_prefix}-{idx + 1}"
+            if queue_name in self._queues:
+                continue
+            queue = Queue[str](queue_name)
+            for item_idx in range(items_per_queue):
+                queue.add_item(f"{queue_name}-item-{item_idx + 1}")
+            if idx in paused_queue_indices:
+                queue.pause()
+            self._queues[queue_name] = queue
+            created_queues.append(self._serialize_queue(queue))
+        return created_queues
+
     def queue_snapshot(self, name: str) -> dict[str, object]:
         queue = self.get_queue(name)
         snapshot = asdict(queue.snapshot())
-        snapshot["state"] = "PAUSED" if snapshot.pop("is_paused") else "OPEN"
-        snapshot["items"] = snapshot.pop("pending_items")
-        return snapshot
+        state = "PAUSED" if snapshot.pop("is_paused") else "OPEN"
+        pending_items = snapshot.pop("pending_items")
+        dispatched_items = snapshot.pop("dispatched_items")
+        item_entries = [
+            {"payload": item, "status": "PENDING"} for item in pending_items
+        ] + [{"payload": item, "status": "SENT"} for item in dispatched_items]
+        return {
+            "name": snapshot["name"],
+            "state": state,
+            "size": snapshot["size"],
+            "sent_count": len(dispatched_items),
+            "items": item_entries,
+        }
 
     def transport_log(self) -> list[dict[str, str]]:
         return list(self._transport_log)
@@ -88,13 +165,23 @@ class QueueService:
         self._queues.clear()
         self._transport_log.clear()
 
+    def _record_sent_item(self, queue_name: str, item: str) -> None:
+        self._transport_log.append(
+            {
+                "queue": queue_name,
+                "item": item,
+                "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+            }
+        )
+
     def _serialize_queue(self, queue: Queue[str]) -> dict[str, object]:
         snapshot = queue.snapshot()
         return {
             "name": snapshot.name,
             "state": "PAUSED" if snapshot.is_paused else "OPEN",
-            "items": snapshot.pending_items,
             "item_count": snapshot.size,
+            "sent_item_count": len(snapshot.dispatched_items),
+            "total_item_count": snapshot.size + len(snapshot.dispatched_items),
         }
 
 
@@ -152,6 +239,22 @@ def dispatch_item(name: str) -> dict[str, object]:
         return service.dispatch_item(name)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/test/run")
+def run_test() -> dict[str, object]:
+    return service.run_test()
+
+
+@app.post("/test/generate")
+def generate_test_queues(payload: GenerateQueuesRequest) -> dict[str, object]:
+    created_queues = service.generate_test_queues(
+        queue_count=payload.queue_count,
+        items_per_queue=payload.items_per_queue,
+        paused_queue_indices=payload.paused_queue_indices,
+        queue_prefix=payload.queue_prefix,
+    )
+    return {"created": len(created_queues), "queues": created_queues}
 
 
 @app.get("/transport/log")
