@@ -80,6 +80,34 @@ Forventet output:
 - Step D: dispatch forsøges igen uden redispatch af terminale items.
 - Fake transport-log viser præcis hvilke items der blev “sendt” og i hvilken rækkefølge.
 
+
+### Kør lokalt backend + UI
+
+Installer dependencies og start FastAPI-servicen (inkl. UI):
+
+```bash
+pip install -r requirements.txt
+uvicorn async_integration_foundation.local_ui_app:app --reload
+```
+
+URL'er:
+
+- UI: `http://127.0.0.1:8000/`
+- API docs: `http://127.0.0.1:8000/docs`
+- Queue API base: `http://127.0.0.1:8000/api`
+
+Kort demo-flow i UI:
+
+1. Udfyld scope-felter i midterkolonnen og klik **Create/Get Queue**.
+2. Vælg queue i venstre kolonne.
+3. Klik **Pause** og tilføj 3-5 items via **Add Item**.
+4. Bekræft at items står som `PENDING`, og at sent-log er tom mens queue er paused.
+5. Klik **Resume** og derefter **Dispatch**.
+6. Se items gå til `DISPATCHED` samt entries i højre kolonne under sent-log.
+7. Klik **Dispatch** igen og bekræft at intet redispatches.
+
+UI'et viser både aktive/open/paused queues og queues med historisk dispatch via summary-badges i venstre kolonne.
+
 ### Kør tests
 
 ```bash
