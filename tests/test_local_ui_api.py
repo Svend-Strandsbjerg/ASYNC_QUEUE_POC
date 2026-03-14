@@ -85,3 +85,21 @@ def test_sent_log_endpoint_lists_items_and_supports_queue_filter() -> None:
     assert all_entries.json()["count"] == 2
     assert filtered_entries.json()["count"] == 1
     assert filtered_entries.json()["entries"][0]["queue_id"] == queue_a
+
+
+def test_ui_logs_are_rendered_as_fixed_scrollable_panels() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    html = response.text
+    assert 'class=\"col logs-col\"' in html
+    assert 'data-testid=\"activity-log-panel\"' in html
+    assert 'data-testid=\"sent-log-panel\"' in html
+    assert 'id=\"activity_log\" class=\"log-panel-body\"' in html
+    assert 'id=\"sent_log\" class=\"log-panel-body\"' in html
+    assert '.log-panel {' in html
+    assert 'height: 260px;' in html
+    assert '.log-panel-body {' in html
+    assert 'overflow-y: auto;' in html
