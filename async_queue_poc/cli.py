@@ -10,15 +10,15 @@ from .domain import Queue
 
 class QueueController:
     def __init__(self):
-        self._queues: dict[str, Queue[str]] = {}
+        self._queues: dict[str, Queue] = {}
 
-    def _get_queue(self, name: str) -> Queue[str] | None:
+    def _get_queue(self, name: str) -> Queue | None:
         return self._queues.get(name)
 
     def create_queue(self, name: str) -> dict[str, Any]:
         if name in self._queues:
             return {"error": f"Queue '{name}' already exists."}
-        self._queues[name] = Queue[str](name)
+        self._queues[name] = Queue(name)
         return {"queue": asdict(self._queues[name].snapshot())}
 
     def pause_queue(self, name: str) -> dict[str, Any]:
@@ -47,7 +47,7 @@ class QueueController:
         if not queue:
             return {"error": f"Queue '{name}' not found."}
         item = queue.dispatch()
-        return {"dispatched_item": item, "queue": asdict(queue.snapshot())}
+        return {"dispatched_item": asdict(item) if item is not None else None, "queue": asdict(queue.snapshot())}
 
     def show_snapshot(self, name: str) -> dict[str, Any]:
         queue = self._get_queue(name)

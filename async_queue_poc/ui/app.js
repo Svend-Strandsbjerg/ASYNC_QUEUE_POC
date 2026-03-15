@@ -6,7 +6,7 @@ const transportLogEl = document.getElementById("transport-log");
 const queueNameInput = document.getElementById("queue-name-input");
 const itemInput = document.getElementById("item-input");
 
-let selectedQueueName = null;
+let selectedQueueId = null;
 const MAX_ACTIVITY_LOG_ENTRIES = 80;
 
 function prependLogEntry(container, element) {
@@ -55,6 +55,10 @@ function queueStateBadge(state) {
   return `<span class="state-badge ${tone}">${state}</span>`;
 }
 
+function queueTitle(queue) {
+  return queue.queue_name || queue.name || queue.queue_id;
+}
+
 function renderQueueList(queues) {
   queueListEl.innerHTML = "";
 
@@ -66,19 +70,20 @@ function renderQueueList(queues) {
   for (const queue of queues) {
     const card = document.createElement("div");
     card.className = "queue-card";
-    if (queue.name === selectedQueueName) {
+    if (queue.queue_id === selectedQueueId) {
       card.classList.add("active");
     }
     card.innerHTML = `
       <div class="queue-header">
-        <strong>${queue.name}</strong>
+        <strong>${queueTitle(queue)}</strong>
         ${queueStateBadge(queue.state)}
       </div>
+      <small>ID: ${queue.queue_id}</small><br />
       <small>pending: ${queue.item_count}</small><br />
       <small>sent: ${queue.sent_item_count}</small>
     `;
     card.addEventListener("click", async () => {
-      selectedQueueName = queue.name;
+      selectedQueueId = queue.queue_id;
       await refreshAll();
     });
     queueListEl.appendChild(card);
@@ -95,13 +100,14 @@ function renderSelectedQueue(snapshot) {
     ? `<ul>${snapshot.items
         .map(
           (item) =>
-            `<li>${item.payload} &nbsp; <em class="item-status-${item.status.toLowerCase()}">${item.status}</em></li>`
+            `<li>${item.payload} (item_id=${item.item_id}) &nbsp; <em class="item-status-${item.status.toLowerCase()}">${item.status}</em></li>`
         )
         .join("")}</ul>`
     : "<p>No items in queue.</p>";
 
   selectedQueueEl.innerHTML = `
-    <p><strong>Name:</strong> ${snapshot.name}</p>
+    <p><strong>Name:</strong> ${snapshot.queue_name}</p>
+    <p><strong>Queue ID:</strong> ${snapshot.queue_id}</p>
     <p><strong>State:</strong> ${queueStateBadge(snapshot.state)}</p>
     <p><strong>Pending:</strong> ${snapshot.size}</p>
     <p><strong>Sent:</strong> ${snapshot.sent_count}</p>
@@ -130,13 +136,11 @@ function renderTransportLog(entries) {
   for (const entry of entries) {
     const li = document.createElement("li");
     const releasedAt = entry.released_at || entry.sent_at || entry.timestamp;
-    const itemId = entry.item_id || entry.item;
-    const queueId = entry.queue_id || entry.queue;
     li.innerHTML = `
       <article class="log-entry" data-testid="sent-log-entry">
-        <div class="log-entry-header">Item: ${itemId}</div>
+        <div class="log-entry-header">Item ID: ${entry.item_id}</div>
         <div class="log-entry-body">
-          <div>Queue: ${queueId}</div>
+          <div>Queue ID: ${entry.queue_id}</div>
           <div>Released: ${formatReleasedAt(releasedAt)}</div>
         </div>
       </article>
@@ -149,12 +153,12 @@ async function refreshAll() {
   const queues = await requestJson("/queues");
   renderQueueList(queues);
 
-  if (selectedQueueName) {
+  if (selectedQueueId) {
     try {
-      const snapshot = await requestJson(`/queues/${selectedQueueName}`);
+      const snapshot = await requestJson(`/queues/${selectedQueueId}`);
       renderSelectedQueue(snapshot);
     } catch (_error) {
-      selectedQueueName = null;
+      selectedQueueId = null;
       renderSelectedQueue(null);
     }
   } else {
@@ -183,19 +187,19 @@ document.getElementById("run-test-btn").addEventListener("click", async () => {
     const payload = await requestJson("/test/run", { method: "POST" });
 
     for (const result of payload.results) {
-      logActivity(`Queue processing started: ${result.queue}`);
+      logActivity(`Queue processing started: queue_id=${result.queue_id}`);
       if (result.status === "SKIPPED") {
-        logActivity(`Queue skipped because paused: ${result.queue}`);
+        logActivity(`Queue skipped because paused: queue_id=${result.queue_id}`);
       } else {
         for (const item of result.items_sent) {
-          logActivity(`Item sent: ${result.queue} → ${item}`);
+          logActivity(`Item sent: item_id=${item.item_id}, queue_id=${result.queue_id}`);
         }
       }
-      logActivity(`Queue processing completed: ${result.queue}`);
+      logActivity(`Queue processing completed: queue_id=${result.queue_id}`);
     }
 
     logActivity(
-      `Run Test completed: processed=${payload.queues_processed}, skipped=${payload.queues_skipped}, sent=${payload.items_sent}`
+      `Run Test completed: processed=${payload.processed.queues} (${payload.processed.items} items), skipped=${payload.skipped.queues} (${payload.skipped.items} items), sent=${payload.sent.queues} (${payload.sent.items} items)`
     );
   });
 });
@@ -207,50 +211,47 @@ document.getElementById("create-queue-btn").addEventListener("click", async () =
     return;
   }
 
-  await withAction(
-    async () => {
-      await requestJson("/queues", {
-        method: "POST",
-        body: JSON.stringify({ name: queueName }),
-      });
-      selectedQueueName = queueName;
-    },
-    `Queue created: ${queueName}`
-  );
+  await withAction(async () => {
+    const queue = await requestJson("/queues", {
+      method: "POST",
+      body: JSON.stringify({ name: queueName }),
+    });
+    selectedQueueId = queue.queue_id;
+    logActivity(`Queue created: queue_id=${queue.queue_id}, name=${queue.queue_name}`);
+  });
 });
 
 document.getElementById("pause-btn").addEventListener("click", async () => {
-  if (!selectedQueueName) return;
-  await withAction(
-    async () => requestJson(`/queues/${selectedQueueName}/pause`, { method: "POST" }),
-    `Queue paused: ${selectedQueueName}`
-  );
+  if (!selectedQueueId) return;
+  await withAction(async () => {
+    const queue = await requestJson(`/queues/${selectedQueueId}/pause`, { method: "POST" });
+    logActivity(`Queue paused: queue_id=${queue.queue_id}`);
+  });
 });
 
 document.getElementById("resume-btn").addEventListener("click", async () => {
-  if (!selectedQueueName) return;
-  await withAction(
-    async () => requestJson(`/queues/${selectedQueueName}/resume`, { method: "POST" }),
-    `Queue resumed: ${selectedQueueName}`
-  );
+  if (!selectedQueueId) return;
+  await withAction(async () => {
+    const queue = await requestJson(`/queues/${selectedQueueId}/resume`, { method: "POST" });
+    logActivity(`Queue resumed: queue_id=${queue.queue_id}`);
+  });
 });
 
 document.getElementById("add-item-btn").addEventListener("click", async () => {
-  if (!selectedQueueName) return;
+  if (!selectedQueueId) return;
   const item = itemInput.value.trim();
   if (!item) {
     logActivity("Item payload is required");
     return;
   }
 
-  await withAction(
-    async () =>
-      requestJson(`/queues/${selectedQueueName}/items`, {
-        method: "POST",
-        body: JSON.stringify({ item }),
-      }),
-    `Item added to ${selectedQueueName}: ${item}`
-  );
+  await withAction(async () => {
+    const response = await requestJson(`/queues/${selectedQueueId}/items`, {
+      method: "POST",
+      body: JSON.stringify({ item }),
+    });
+    logActivity(`Item added: item_id=${response.item.item_id}, queue_id=${response.item.queue_id}`);
+  });
 });
 
 document.getElementById("refresh-btn").addEventListener("click", () => {

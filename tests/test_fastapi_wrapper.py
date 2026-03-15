@@ -14,49 +14,46 @@ def clear_state() -> None:
 def test_run_test_sends_open_queue_items_and_skips_paused_items() -> None:
     client = TestClient(api.app)
 
-    client.post("/queues", json={"name": "Queue A"})
-    client.post("/queues", json={"name": "Queue B"})
-    client.post("/queues", json={"name": "Queue C"})
+    queue_a = client.post("/queues", json={"name": "Queue A"}).json()["queue_id"]
+    queue_b = client.post("/queues", json={"name": "Queue B"}).json()["queue_id"]
+    queue_c = client.post("/queues", json={"name": "Queue C"}).json()["queue_id"]
 
-    client.post("/queues/Queue B/pause")
+    client.post(f"/queues/{queue_b}/pause")
 
-    client.post("/queues/Queue A/items", json={"item": "A1"})
-    client.post("/queues/Queue A/items", json={"item": "A2"})
-    client.post("/queues/Queue B/items", json={"item": "B1"})
-    client.post("/queues/Queue B/items", json={"item": "B2"})
-    client.post("/queues/Queue C/items", json={"item": "C1"})
+    client.post(f"/queues/{queue_a}/items", json={"item": "A1"})
+    client.post(f"/queues/{queue_a}/items", json={"item": "A2"})
+    client.post(f"/queues/{queue_b}/items", json={"item": "B1"})
+    client.post(f"/queues/{queue_b}/items", json={"item": "B2"})
+    client.post(f"/queues/{queue_c}/items", json={"item": "C1"})
 
     run_response = client.post("/test/run")
 
     assert run_response.status_code == 200
     payload = run_response.json()
-    assert payload["queues_processed"] == 3
-    assert payload["queues_skipped"] == 1
-    assert payload["items_sent"] == 3
+    assert payload["processed"] == {"queues": 2, "items": 3}
+    assert payload["skipped"] == {"queues": 1, "items": 2}
+    assert payload["sent"] == {"queues": 2, "items": 3}
 
-    result_by_queue = {result["queue"]: result for result in payload["results"]}
-    assert result_by_queue["Queue A"] == {
-        "queue": "Queue A",
-        "status": "SENT",
-        "items_sent": ["A1", "A2"],
-        "remaining_items": 0,
-    }
-    assert result_by_queue["Queue B"] == {
-        "queue": "Queue B",
+    result_by_queue = {result["queue_id"]: result for result in payload["results"]}
+    assert result_by_queue[queue_a]["status"] == "SENT"
+    assert [item["payload"] for item in result_by_queue[queue_a]["items_sent"]] == ["A1", "A2"]
+    assert result_by_queue[queue_b] == {
+        "queue_id": queue_b,
+        "queue_name": "Queue B",
         "status": "SKIPPED",
         "reason": "paused",
+        "items_sent": [],
+        "items_sent_count": 0,
+        "pending_items": result_by_queue[queue_b]["pending_items"],
         "remaining_items": 2,
     }
-    assert result_by_queue["Queue C"] == {
-        "queue": "Queue C",
-        "status": "SENT",
-        "items_sent": ["C1"],
-        "remaining_items": 0,
-    }
+    assert [item["payload"] for item in result_by_queue[queue_b]["pending_items"]] == ["B1", "B2"]
+    assert result_by_queue[queue_c]["status"] == "SENT"
+    assert [item["payload"] for item in result_by_queue[queue_c]["items_sent"]] == ["C1"]
 
-    a_snapshot = client.get("/queues/Queue A").json()
-    b_snapshot = client.get("/queues/Queue B").json()
-    c_snapshot = client.get("/queues/Queue C").json()
+    a_snapshot = client.get(f"/queues/{queue_a}").json()
+    b_snapshot = client.get(f"/queues/{queue_b}").json()
+    c_snapshot = client.get(f"/queues/{queue_c}").json()
 
     assert [item["status"] for item in a_snapshot["items"]] == ["SENT", "SENT"]
     assert [item["payload"] for item in b_snapshot["items"]] == ["B1", "B2"]
@@ -64,36 +61,32 @@ def test_run_test_sends_open_queue_items_and_skips_paused_items() -> None:
     assert [item["status"] for item in c_snapshot["items"]] == ["SENT"]
 
 
-def test_sent_log_reflects_global_processing_order() -> None:
+def test_sent_log_reflects_global_processing_order_with_real_ids() -> None:
     client = TestClient(api.app)
 
-    client.post("/queues", json={"name": "Queue A"})
-    client.post("/queues", json={"name": "Queue B"})
-    client.post("/queues", json={"name": "Queue C"})
+    queue_a = client.post("/queues", json={"name": "Queue A"}).json()["queue_id"]
+    queue_b = client.post("/queues", json={"name": "Queue B"}).json()["queue_id"]
+    queue_c = client.post("/queues", json={"name": "Queue C"}).json()["queue_id"]
 
-    client.post("/queues/Queue B/pause")
+    client.post(f"/queues/{queue_b}/pause")
 
-    for item in ["A1", "A2"]:
-        client.post("/queues/Queue A/items", json={"item": item})
-    for item in ["B1", "B2"]:
-        client.post("/queues/Queue B/items", json={"item": item})
-    client.post("/queues/Queue C/items", json={"item": "C1"})
+    a1 = client.post(f"/queues/{queue_a}/items", json={"item": "A1"}).json()["item"]["item_id"]
+    a2 = client.post(f"/queues/{queue_a}/items", json={"item": "A2"}).json()["item"]["item_id"]
+    client.post(f"/queues/{queue_b}/items", json={"item": "B1"})
+    client.post(f"/queues/{queue_b}/items", json={"item": "B2"})
+    c1 = client.post(f"/queues/{queue_c}/items", json={"item": "C1"}).json()["item"]["item_id"]
 
     client.post("/test/run")
 
     transport = client.get("/transport/log")
     assert transport.status_code == 200
     entries = transport.json()
-    assert [(entry["queue"], entry["item"]) for entry in entries] == [
-        ("Queue A", "A1"),
-        ("Queue A", "A2"),
-        ("Queue C", "C1"),
+    assert [(entry["queue_id"], entry["item_id"]) for entry in entries] == [
+        (queue_a, a1),
+        (queue_a, a2),
+        (queue_c, c1),
     ]
-    assert all("item_id" in entry for entry in entries)
-    assert all("queue_id" in entry for entry in entries)
     assert all("released_at" in entry for entry in entries)
-    assert all(entry["item_id"] == entry["item"] for entry in entries)
-    assert all(entry["queue_id"] == entry["queue"] for entry in entries)
     assert all(entry["released_at"] == entry["timestamp"] for entry in entries)
 
 
@@ -108,13 +101,15 @@ def test_generate_test_endpoint_removed_from_main_flow() -> None:
 def test_list_queues_and_static_ui_mount() -> None:
     client = TestClient(api.app)
 
-    client.post("/queues", json={"name": "alpha"})
-    client.post("/queues", json={"name": "beta"})
+    queue_alpha = client.post("/queues", json={"name": "alpha"}).json()
+    queue_beta = client.post("/queues", json={"name": "beta"}).json()
     list_response = client.get("/queues")
 
     assert list_response.status_code == 200
-    names = {queue["name"] for queue in list_response.json()}
-    assert names == {"alpha", "beta"}
+    queue_names = {queue["queue_name"] for queue in list_response.json()}
+    queue_ids = {queue["queue_id"] for queue in list_response.json()}
+    assert queue_names == {"alpha", "beta"}
+    assert queue_ids == {queue_alpha["queue_id"], queue_beta["queue_id"]}
 
     ui_response = client.get("/ui")
     assert ui_response.status_code == 200
@@ -145,6 +140,8 @@ def test_ui_script_renders_newest_log_entries_first_with_structured_sent_item_ca
     assert response.status_code == 200
     script = response.text
     assert "container.insertBefore(element, container.firstChild);" in script
-    assert 'class="log-entry-header">Item: ${itemId}</div>' in script
-    assert "<div>Queue: ${queueId}</div>" in script
+    assert 'class="log-entry-header">Item ID: ${entry.item_id}</div>' in script
+    assert "<div>Queue ID: ${entry.queue_id}</div>" in script
     assert "<div>Released: ${formatReleasedAt(releasedAt)}</div>" in script
+    assert "Run Test completed: processed=${payload.processed.queues}" in script
+    assert "(${payload.processed.items} items)" in script
